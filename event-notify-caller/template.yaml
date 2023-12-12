@@ -1,0 +1,80 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  event-notify-caller
+
+Parameters:
+  DestinationPhoneNumber:
+    Type: String
+    Default: '0000000000000'
+    Description: Phone number to call
+  ContactFlowId:
+    Type: String
+    Default: '00000000-0000-0000-0000-000000000000'
+    Description: Contact Flow Id
+  AmazonConnectInstanceId:
+    Type: String
+    Default: '00000000-0000-0000-0000-000000000000'
+    Description: Amazon Connect Instance Id
+  SourcePhoneNumber:
+    Type: String
+    Default: '0000000000000'
+    Description: Source Phone Number
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 3
+    MemorySize: 128
+
+    LoggingConfig:
+      LogFormat: JSON
+Resources:
+  EventNotifyCaller:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: caller/
+      Handler: app.lambda_handler
+      Runtime: python3.9
+      Architectures:
+      - x86_64
+      Policies:
+        - !Ref ConnectPolicy
+      FunctionUrlConfig:
+        AuthType: NONE
+      Environment:
+        Variables:
+          DESTINATION_PHONE_NUMBER: !Ref DestinationPhoneNumber
+          CONTACT_FLOW_ID: !Ref ContactFlowId
+          AMAZON_CONNECT_INSTANCE_ID: !Ref AmazonConnectInstanceId
+          SOURCE_PHONE_NUMBER: !Ref SourcePhoneNumber
+
+
+  ConnectPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Allow Amazon Connect Call
+      ManagedPolicyName: AllowAmazonConnectCallPolicy
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - connect:StartOutboundVoiceContact
+            Effect: Allow
+            Resource:
+              - !Sub "arn:aws:connect:ap-northeast-1:${AWS::AccountId}:instance/${AmazonConnectInstanceId}/contact/*"
+
+
+  ApplicationResourceGroup:
+    Type: AWS::ResourceGroups::Group
+    Properties:
+      Name:
+        Fn::Sub: ApplicationInsights-SAM-${AWS::StackName}
+      ResourceQuery:
+        Type: CLOUDFORMATION_STACK_1_0
+  ApplicationInsightsMonitoring:
+    Type: AWS::ApplicationInsights::Application
+    Properties:
+      ResourceGroupName:
+        Ref: ApplicationResourceGroup
+      AutoConfigurationEnabled: 'true'
